@@ -24,6 +24,7 @@ class MainVerticle : CoroutineVerticle() {
       .getDatabase(dbName)
       .getCollection(colName)
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
+    col.createIndex(Document("hour", 1), IndexOptions().expireAfter(30, TimeUnit.DAYS)).awaitFirst()
 
     vertx
       .createHttpServer()
