@@ -33,6 +33,7 @@ dependencies {
   implementation(platform("io.vertx:vertx-stack-depchain:$vertxVersion"))
   implementation("io.vertx:vertx-lang-kotlin-coroutines")
   implementation("io.vertx:vertx-lang-kotlin")
+  implementation("io.vertx:vertx-web:$vertxVersion")
   implementation("org.mongodb:mongodb-driver-reactivestreams:4.2.0")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.4.2")
   implementation(kotlin("stdlib-jdk8"))
