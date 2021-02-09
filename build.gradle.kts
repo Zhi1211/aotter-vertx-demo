@@ -37,6 +37,8 @@ dependencies {
   implementation("org.mongodb:mongodb-driver-reactivestreams:4.2.0")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.4.2")
   implementation(kotlin("stdlib-jdk8"))
+  implementation("com.fasterxml.jackson.core:jackson-databind:2.12.1")
+  implementation("com.fasterxml.jackson.core:jackson-annotations:2.12.1")
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
 }

@@ -1,13 +1,24 @@
 package com.example.monitor
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.mongodb.WriteConcern
+import com.mongodb.client.model.*
 import com.mongodb.reactivestreams.client.MongoClients
 import com.mongodb.reactivestreams.client.MongoCollection
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
+import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.await
+import io.vertx.kotlin.coroutines.dispatcher
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactive.awaitFirst
+import kotlinx.coroutines.reactive.collect
 import org.bson.Document
+import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 class MainVerticle : CoroutineVerticle() {
 
@@ -36,8 +47,43 @@ class MainVerticle : CoroutineVerticle() {
   private fun router(): Router {
     val router = Router.router(vertx)
     router.route().handler(BodyHandler.create())
-    router.get("/hello")
-    router.post("/monitor")
+    router.get("/").handler { ctx-> ctx.response().end("hello") }
+    router.post("/monitor").handler { ctx ->
+//    run a coroutine
+      GlobalScope.launch(ctx.vertx().dispatcher()){
+        accumulateCarCount(ctx)
+      }
+    }
     return router
+  }
+
+//  process data send from monitors and return all current records
+  private suspend fun accumulateCarCount(ctx: RoutingContext){
+    val jsonObj = ctx.bodyAsJson
+    upsertCarHourCount(jsonObj)
+    val records = getAllRecords()
+    ctx.response().end(ObjectMapper().writeValueAsString(records))
+  }
+
+// if record with same conditions exists, increase count 1;
+// if not, insert a new record
+  private suspend fun upsertCarHourCount(jsonObj: JsonObject): Document?{
+    val hour = LocalDateTime.parse(jsonObj.getString("hour"))
+    return col.findOneAndUpdate(
+      Filters.and(
+        Filters.eq("brand", jsonObj.getString("brand")),
+        Filters.eq("color", jsonObj.getString("color")),
+        Filters.eq("city", jsonObj.getString("city")),
+        Filters.eq("hour", hour)
+      ),
+      Updates.inc("count", 1),
+      FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
+    ).awaitFirst()
+  }
+
+  private suspend fun getAllRecords(): List<Document>{
+    val records = mutableListOf<Document>()
+    col.find().collect { records.add(it) }
+    return records
   }
 }
