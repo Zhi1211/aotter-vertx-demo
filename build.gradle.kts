@@ -39,6 +39,9 @@ dependencies {
   implementation(kotlin("stdlib-jdk8"))
   implementation("com.fasterxml.jackson.core:jackson-databind:2.12.1")
   implementation("com.fasterxml.jackson.core:jackson-annotations:2.12.1")
+  implementation("com.google.api-client:google-api-client:1.30.10")
+  implementation("com.google.auth:google-auth-library-oauth2-http:0.11.0")
+  implementation("com.google.cloud:google-cloud-storage:1.43.0")
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
 }
