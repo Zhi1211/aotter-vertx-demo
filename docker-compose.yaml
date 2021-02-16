@@ -17,6 +17,15 @@ services:
       context: .
       args:
         VERTICLE: TaskVerticle
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/for-test.json
+      PROJECT_ID: for-test-304513
+      BUCKET: monitor_report_monthly
+    ports:
+      - "8081"
+    depends_on:
+      - mongo
   mongo:
     container_name: "mongo"
     image: mongo
