@@ -26,8 +26,7 @@ import java.util.concurrent.TimeUnit
 
 class MainVerticle : CoroutineVerticle() {
 
-  //  private val uri = "mongodb://localhost:27017"
-  private val uri = "mongodb://mongo:27017"
+  private val uri = System.getenv("MONGO_URI") ?: "mongodb://localhost:27017"
 
   private val dbName = "cars"
 
