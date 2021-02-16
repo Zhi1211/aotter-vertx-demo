@@ -3,8 +3,12 @@ package com.example.monitor
 import com.google.api.services.storage.StorageScopes
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.storage.*
+import io.vertx.core.DeploymentOptions
+import io.vertx.core.Vertx
+import io.vertx.core.VertxOptions
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.dispatcher
+import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.io.InputStream
@@ -66,6 +70,24 @@ class TaskVerticle: CoroutineVerticle() {
     } catch (e: StorageException){
       e.printStackTrace()
       return false
+    }
+  }
+}
+
+// deploy as clustered verticle
+fun main(){
+  val vertxOptions = VertxOptions()
+  val manager = HazelcastClusterManager()
+  vertxOptions.clusterManager = manager
+
+  Vertx.clusteredVertx(vertxOptions) { res ->
+    if (res.succeeded()) {
+      val vertx = res.result()
+      // set TaskVerticle as worker verticle
+      vertx.deployVerticle(TaskVerticle::class.java, DeploymentOptions().setWorker(true))
+      println("task verticle deploy succeed")
+    } else {
+      println("task verticle deploy failed")
     }
   }
 }

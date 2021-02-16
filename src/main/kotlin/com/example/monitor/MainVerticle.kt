@@ -5,6 +5,9 @@ import com.mongodb.WriteConcern
 import com.mongodb.client.model.*
 import com.mongodb.reactivestreams.client.MongoClients
 import com.mongodb.reactivestreams.client.MongoCollection
+import io.vertx.core.DeploymentOptions
+import io.vertx.core.Vertx
+import io.vertx.core.VertxOptions
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -12,6 +15,7 @@ import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.await
 import io.vertx.kotlin.coroutines.dispatcher
+import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactive.awaitFirst
@@ -88,3 +92,20 @@ class MainVerticle : CoroutineVerticle() {
     return records
   }
 }
+
+// deploy as clustered verticle
+fun main(){
+  val vertxOptions = VertxOptions()
+  val manager = HazelcastClusterManager()
+  vertxOptions.clusterManager = manager
+  Vertx.clusteredVertx(vertxOptions) { res ->
+    if (res.succeeded()) {
+      val vertx = res.result()
+      vertx.deployVerticle(MainVerticle::class.java, DeploymentOptions())
+      println("main verticle deploy succeed")
+    } else {
+      println("main verticle deploy failed")
+    }
+  }
+}
+
