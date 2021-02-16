@@ -19,7 +19,10 @@ repositories {
 val vertxVersion = "4.0.2"
 val junitJupiterVersion = "5.7.0"
 
-val mainVerticleName = "com.example.monitor.MainVerticle"
+var mainVerticleName = "MainVerticle"
+if(project.hasProperty("args")){
+  mainVerticleName = "com.example.monitor.${project.property("args")}"
+}
 val launcherClassName = "io.vertx.core.Launcher"
 
 val watchForChange = "src/**/*"
