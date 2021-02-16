@@ -65,6 +65,7 @@ class TaskVerticle: CoroutineVerticle() {
       return blob.exists()
     } catch (e: StorageException){
       e.printStackTrace()
+      return false
     }
   }
 }
