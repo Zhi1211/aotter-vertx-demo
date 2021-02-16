@@ -1,5 +1,24 @@
 = Monitor
 
+本機執行指令
+
+```
+docker-compose up --scale web=3
+```
+Web API
+```
+http://localhost:5000/monitor
+method: POST
+example request body:
+{
+  "cameraId": "88648a08-ea65-4f42-8c33-59e3f21844eb",
+  "brand": "nissan",
+  "color": "white",
+  "city": "New Taipei",
+  "hour": "2021-02-09T10:00:00"
+}
+```
+
 image:https://img.shields.io/badge/vert.x-4.0.2-purple.svg[link="https://vertx.io"]
 
 This application was generated using http://start.vertx.io
