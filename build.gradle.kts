@@ -38,6 +38,7 @@ dependencies {
   implementation("io.vertx:vertx-lang-kotlin")
   implementation("io.vertx:vertx-web:$vertxVersion")
   implementation("io.vertx:vertx-hazelcast:$vertxVersion")
+  implementation("io.vertx:vertx-redis-client:$vertxVersion")
   implementation("org.mongodb:mongodb-driver-reactivestreams:4.2.0")
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.4.2")
   implementation(kotlin("stdlib-jdk8"))

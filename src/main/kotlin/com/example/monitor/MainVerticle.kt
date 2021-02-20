@@ -15,15 +15,23 @@ import io.vertx.kotlin.coroutines.dispatcher
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import io.vertx.redis.client.Redis
+import io.vertx.redis.client.RedisAPI
 
 class MainVerticle : CoroutineVerticle() {
 
   private lateinit var mongoService: MongoService
 
+  private lateinit var redisService: RedisService
 
   override suspend fun start() {
     mongoService = MongoService()
     mongoService.createExpireIndex()
+    Redis.createClient(vertx)
+      .connect()
+      .onSuccess { client ->
+        redisService = RedisService(RedisAPI.api(client))
+      }
 
     vertx
       .createHttpServer()
@@ -37,14 +45,25 @@ class MainVerticle : CoroutineVerticle() {
     router.route().handler(BodyHandler.create())
     router.get("/").handler { ctx-> ctx.response().end("hello") }
     router.post("/monitor").handler { ctx ->
-//    run a coroutine
       GlobalScope.launch(ctx.vertx().dispatcher()){
-        accumulateCarCount(ctx)
+        val monitorData = MonitorData.mapJsonObjectToData(ctx.bodyAsJson)
+        val result = handleMonitorRequest(monitorData)
+        ctx.response().end(ObjectMapper().writeValueAsString(result))
       }
     }
     return router
   }
 
+  private suspend fun handleMonitorRequest(monitorData: MonitorData): Map<String, Map<String, Long>>?{
+    try{
+      val count = redisService.incrRedisCountAndSetTTL(monitorData)
+      monitorData.count = count
+      mongoService.insertMonitorData(monitorData)
+      return redisService.getAllFromRedis()
+    }catch (e: Exception){
+      e.printStackTrace()
+    }
+    return null
   }
 }
 
