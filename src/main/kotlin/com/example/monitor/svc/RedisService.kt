@@ -2,6 +2,8 @@ package com.example.monitor.svc
 
 import io.vertx.kotlin.coroutines.await
 import io.vertx.redis.client.RedisAPI
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class RedisService(redisClient: RedisAPI) {
 
@@ -28,12 +30,11 @@ class RedisService(redisClient: RedisAPI) {
     do {
         val cursorResult = redisClient.scan(listOf(cursor)).await().toList()
         cursor = cursorResult[0].toString()
-        val keys = cursorResult[1]
-        keys.forEach{
-          val key = it.toString()
-          val count = redisClient.get(key).await().toLong()
-          list.add(mapOf(key to count))
+        val keys = cursorResult[1].map { it.toString() }
+        val fragment = redisClient.mget(keys).await().mapIndexed{index, response ->
+          mapOf(keys[index] to response.toLong())
         }
+        list.addAll(fragment)
     }while (cursor != "0")
     return list
   }
