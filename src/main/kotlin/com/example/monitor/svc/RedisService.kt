@@ -9,33 +9,32 @@ class RedisService(redisClient: RedisAPI) {
 
   private val thirtyDays = 30 * 24 * 60 * 60
 
-  /* update redis hash, use hour as key, city:brand:color as attribute, count as value
-  *  and return updated count
-  */
+  /* update redis, use  hourToMilli:city:brand:color as key, count as value
+   *  and return updated count
+   */
   suspend fun incrRedisCountAndSetTTL(monitorData: MonitorData): Long{
     val (_, hour, city, brand, color) = monitorData
     val hourToMilliStr = hour.time.toString()
-    val count = redisClient.hincrby(hourToMilliStr, "$city:$brand:$color", "1").await().toLong()
-    redisClient.expire(hourToMilliStr, thirtyDays.toString())
+    val key = "$hourToMilliStr:$city:$brand:$color"
+    val count = redisClient.incr(key).await().toLong()
+    redisClient.expire(key, thirtyDays.toString())
     return count
   }
 
-  // get all hash data from redis
-  suspend fun getAllFromRedis(): Map<String, Map<String, Long>>{
-    val keysResponse = redisClient.keys("*").await()
-    val map = mutableMapOf<String, Map<String, Long>>()
-    keysResponse.forEach { keyRes ->
-      val keyHour = keyRes.toString()
-      val attrMap = mutableMapOf<String, Long>()
-
-      val hashKeysRes = redisClient.hkeys(keyHour).await()
-      hashKeysRes.forEach { hashKeyRes ->
-        val hashKey = hashKeyRes.toString()
-        val value = redisClient.hget(keyHour, hashKey).await()
-        attrMap.put(hashKey, value.toLong())
-      }
-      map.put(keyHour, attrMap)
-    }
-    return map
+  // get all data from redis
+  suspend fun getAllFromRedis(): List<Map<String, Long>>{
+    var cursor = "0"
+    val list = mutableListOf<Map<String, Long>>()
+    do {
+        val cursorResult = redisClient.scan(listOf(cursor)).await().toList()
+        cursor = cursorResult[0].toString()
+        val keys = cursorResult[1]
+        keys.forEach{
+          val key = it.toString()
+          val count = redisClient.get(key).await().toLong()
+          list.add(mapOf(key to count))
+        }
+    }while (cursor != "0")
+    return list
   }
 }

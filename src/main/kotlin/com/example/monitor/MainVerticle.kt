@@ -54,7 +54,7 @@ class MainVerticle : CoroutineVerticle() {
     return router
   }
 
-  private suspend fun handleMonitorRequest(monitorData: MonitorData): Map<String, Map<String, Long>>?{
+  private suspend fun handleMonitorRequest(monitorData: MonitorData): List<Map<String, Long>>?{
     try{
       val count = redisService.incrRedisCountAndSetTTL(monitorData)
       monitorData.count = count
