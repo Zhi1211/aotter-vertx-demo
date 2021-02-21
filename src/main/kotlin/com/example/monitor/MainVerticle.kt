@@ -17,6 +17,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import io.vertx.redis.client.Redis
 import io.vertx.redis.client.RedisAPI
+import io.vertx.redis.client.RedisOptions
 
 class MainVerticle : CoroutineVerticle() {
 
@@ -24,10 +25,12 @@ class MainVerticle : CoroutineVerticle() {
 
   private lateinit var redisService: RedisService
 
+  private val redisUri = System.getenv("REDIS_URI") ?: "redis://localhost:6379"
+
   override suspend fun start() {
     mongoService = MongoService()
     mongoService.createExpireIndex()
-    Redis.createClient(vertx)
+    Redis.createClient(vertx, RedisOptions().setConnectionString(redisUri))
       .connect()
       .onSuccess { client ->
         redisService = RedisService(RedisAPI.api(client))

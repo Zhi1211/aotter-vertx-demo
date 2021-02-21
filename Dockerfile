@@ -10,5 +10,6 @@ RUN gradle clean assemble -Pargs=${VERTICLE} --stacktrace
 
 FROM openjdk:11.0.9.1-jre
 COPY --from=build /usr/app/build/libs/monitor-1.0.0-SNAPSHOT-fat.jar /srv/app.jar
+EXPOSE 80
 ENTRYPOINT ["sh", "-c"]
 CMD ["java -jar /srv/app.jar -cluster"]
