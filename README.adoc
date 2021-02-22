@@ -7,7 +7,7 @@ docker-compose up --scale web=3
 ```
 Web API
 ```
-http://localhost:5000/monitor
+http://localhost/monitor
 method: POST
 example request body:
 {
