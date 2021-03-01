@@ -1,5 +1,6 @@
 package com.example.monitor
 
+import com.example.monitor.svc.MongoService
 import com.google.api.services.storage.StorageScopes
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.storage.*
@@ -11,9 +12,8 @@ import io.vertx.kotlin.coroutines.dispatcher
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import java.io.InputStream
+import java.io.File
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -26,9 +26,12 @@ class TaskVerticle: CoroutineVerticle() {
 
   private lateinit var googleCredentials: GoogleCredentials
 
+  private lateinit var mongoService: MongoService
+
   private val bucket = System.getenv("BUCKET") ?: "monitor_report_monthly"
 
   override suspend fun start(){
+    mongoService = MongoService()
     storage = StorageOptions.newBuilder().setProjectId("for-test-304513").build().service
     googleCredentials = googleCredentialStorageScope()
 
@@ -37,38 +40,35 @@ class TaskVerticle: CoroutineVerticle() {
       // run a coroutine
       GlobalScope.launch(vertx.dispatcher()){
         val fileName = mongoexportCsv()
-        val filePath = Paths.get(fileName)
-        val inputStream: InputStream = Files.newInputStream(filePath)
-        uploadObjectAndDeleteTmp(inputStream, fileName, filePath)
+        uploadObjectAndDeleteTmp(fileName)
       }
     }
   }
 
   // get google credential from file
   private fun googleCredentialStorageScope(): GoogleCredentials {
-    val gcpCredentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS") ?: "for-test.json"
+    val gcpCredentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS") ?: "/tmp/for-test.json"
     val serviceAccount = Files.newInputStream(Paths.get(gcpCredentialsPath))
     return GoogleCredentials.fromStream(serviceAccount).createScoped(StorageScopes.all())
   }
 
-  // use mongoexport command export mongodb collection
+  // export car counts
   private fun mongoexportCsv(): String{
     val now = DateTimeFormatter.ofPattern("yyyy-MM").format(Date().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
-    val uri = System.getenv("MONGO_URI") ?: "mongodb://localhost:27017"
-    val fileName = "$now.csv"
-    val run = Runtime.getRuntime()
-    run.exec("mongoexport --$uri --db cars -c carHourCounts").waitFor()
+    val fileName = "/tmp/$now.csv"
+    mongoService.exportCarCountsMonthly(fileName)
     return fileName
   }
 
   // upload GCS
-  private fun uploadObjectAndDeleteTmp(stream: InputStream, fileName: String, filePath: Path) {
+  private fun uploadObjectAndDeleteTmp(fileName: String) {
+    val inputStream = File(fileName).inputStream()
     val blobId = BlobId.of(bucket, fileName)
     val blobInfo = BlobInfo.newBuilder(blobId).build()
     try{
-      val blob = storage.create(blobInfo, stream)
+      val blob = storage.create(blobInfo, inputStream)
       if(blob.exists()){
-        Files.delete(filePath)
+        Files.delete(Paths.get(fileName))
       }
     } catch (e: StorageException){
       e.printStackTrace()

@@ -47,6 +47,18 @@ class MongoService {
     return !result.insertedId.isNull
   }
 
+  fun exportCarCountsMonthly(target: String) {
+    val file = File(target)
+    if(!file.exists()) {
+      file.parentFile.mkdirs()
+      file.createNewFile()
+    }
+    val date = LocalDate.now(ZoneId.of("Asia/Shanghai")).minusDays(30)
+    val publisher = col.find(gte("hour", date))
+    val subscriber = WriterSubscriber(target)
+    publisher.subscribe(subscriber)
+    subscriber.await()
+  }
 }
 
 data class MonitorData(
