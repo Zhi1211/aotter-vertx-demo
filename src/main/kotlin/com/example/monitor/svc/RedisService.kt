@@ -2,8 +2,6 @@ package com.example.monitor.svc
 
 import io.vertx.kotlin.coroutines.await
 import io.vertx.redis.client.RedisAPI
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 
 class RedisService(redisClient: RedisAPI) {
 
@@ -16,7 +14,7 @@ class RedisService(redisClient: RedisAPI) {
    */
   suspend fun incrRedisCountAndSetTTL(monitorData: MonitorData): Long{
     val (_, hour, city, brand, color) = monitorData
-    val hourToMilliStr = hour.time.toString()
+    val hourToMilliStr = hour?.time.toString()
     val key = "$hourToMilliStr:$city:$brand:$color"
     val count = redisClient.incr(key).await().toLong()
     redisClient.expire(key, thirtyDays.toString())

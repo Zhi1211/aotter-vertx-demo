@@ -1,8 +1,10 @@
 package com.example.monitor.svc
 
+import com.example.monitor.WriterSubscriber
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.WriteConcern
+import com.mongodb.client.model.Filters.gte
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.reactivestreams.client.MongoClients
 import io.vertx.core.json.JsonObject
@@ -11,6 +13,8 @@ import org.bson.Document
 import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistries.fromRegistries
 import org.bson.codecs.pojo.PojoCodecProvider
+import java.io.File
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.*
@@ -62,11 +66,11 @@ class MongoService {
 }
 
 data class MonitorData(
-  val cameraId: String,
-  val hour: Date,
-  val city: String,
-  val brand: String,
-  val color: String,
+  var cameraId: String? = null,
+  var hour: Date? = null,
+  var city: String? = null,
+  var brand: String? = null,
+  var color: String? = null,
   var count: Long? = null
 ){
   companion object {
