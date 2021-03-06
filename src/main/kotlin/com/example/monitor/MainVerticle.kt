@@ -2,8 +2,6 @@ package com.example.monitor
 
 import com.example.monitor.svc.MongoService
 import com.example.monitor.svc.MonitorData
-import com.example.monitor.svc.RedisService
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
 import io.vertx.core.VertxOptions
@@ -15,26 +13,14 @@ import io.vertx.kotlin.coroutines.dispatcher
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import io.vertx.redis.client.Redis
-import io.vertx.redis.client.RedisAPI
-import io.vertx.redis.client.RedisOptions
 
 class MainVerticle : CoroutineVerticle() {
 
   private lateinit var mongoService: MongoService
 
-  private lateinit var redisService: RedisService
-
-  private val redisUri = System.getenv("REDIS_URI") ?: "redis://localhost:6379"
-
   override suspend fun start() {
     mongoService = MongoService()
-    mongoService.createExpireIndex()
-    Redis.createClient(vertx, RedisOptions().setConnectionString(redisUri))
-      .connect()
-      .onSuccess { client ->
-        redisService = RedisService(RedisAPI.api(client))
-      }
+    mongoService.createIndexes()
 
     vertx
       .createHttpServer()
@@ -50,23 +36,18 @@ class MainVerticle : CoroutineVerticle() {
     router.post("/monitor").handler { ctx ->
       GlobalScope.launch(ctx.vertx().dispatcher()){
         val monitorData = MonitorData.mapJsonObjectToData(ctx.bodyAsJson)
-        val result = handleMonitorRequest(monitorData)
-        ctx.response().end(ObjectMapper().writeValueAsString(result))
+        val success = handleMonitorRequest(monitorData)
+        if(!success) ctx.response().statusCode = 500
+        ctx.response().end()
       }
     }
     return router
   }
 
-  private suspend fun handleMonitorRequest(monitorData: MonitorData): List<Map<String, Long>>?{
-    try{
-      val count = redisService.incrRedisCountAndSetTTL(monitorData)
-      monitorData.count = count
-      mongoService.insertMonitorData(monitorData)
-      return redisService.getAllFromRedis()
-    }catch (e: Exception){
-      e.printStackTrace()
-    }
-    return null
+  private suspend fun handleMonitorRequest(monitorData: MonitorData): Boolean{
+    val currentCount = mongoService.getSpecificCount(monitorData)
+    monitorData.count = currentCount + 1
+    return mongoService.insertMonitorData(monitorData)
   }
 }
 
