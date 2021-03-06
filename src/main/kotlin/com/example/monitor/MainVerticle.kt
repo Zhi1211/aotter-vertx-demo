@@ -5,6 +5,7 @@ import com.example.monitor.svc.MonitorData
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
 import io.vertx.core.VertxOptions
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.kotlin.coroutines.CoroutineVerticle
@@ -35,7 +36,8 @@ class MainVerticle : CoroutineVerticle() {
     router.get("/").handler { ctx-> ctx.response().end("hello") }
     router.post("/monitor").handler { ctx ->
       GlobalScope.launch(ctx.vertx().dispatcher()){
-        val monitorData = MonitorData.mapJsonObjectToData(ctx.bodyAsJson)
+        val jsonObject = ctx.bodyAsJson ?: ctx.response().setStatusCode(400).end("invalid request body")
+        val monitorData = MonitorData.mapJsonObjectToData(jsonObject as JsonObject)
         val success = handleMonitorRequest(monitorData)
         if(!success) ctx.response().statusCode = 500
         ctx.response().end()
