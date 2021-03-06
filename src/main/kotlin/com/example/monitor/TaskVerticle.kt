@@ -11,10 +11,13 @@ import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.dispatcher
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardOpenOption
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -39,7 +42,7 @@ class TaskVerticle: CoroutineVerticle() {
     vertx.setPeriodic(TimeUnit.SECONDS.toMillis(3)) {
       // run a coroutine
       GlobalScope.launch(vertx.dispatcher()){
-        val fileName = mongoexportCsv()
+        val fileName = exportCarCountsCsv()
         uploadObjectAndDeleteTmp(fileName)
       }
     }
@@ -53,11 +56,27 @@ class TaskVerticle: CoroutineVerticle() {
   }
 
   // export car counts
-  private fun mongoexportCsv(): String{
+  private suspend fun exportCarCountsCsv(): String{
     val now = DateTimeFormatter.ofPattern("yyyy-MM").format(Date().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime())
     val fileName = "/tmp/$now.csv"
-    mongoService.exportCarCountsMonthly(fileName)
+    createTempFile(fileName)
+    writeData(fileName)
     return fileName
+  }
+
+  private fun createTempFile(target: String){
+    val file = File(target)
+    if(!file.exists()) {
+      file.parentFile.mkdirs()
+      file.createNewFile()
+    }
+  }
+
+  private suspend fun writeData(target: String){
+    mongoService.getCarCountsMonthly().collect {
+      val data = "${it?.hour},${it?.city},${it?.brand},${it?.color},\n"
+      Files.write(Path.of(target), data.toByteArray(), StandardOpenOption.APPEND)
+    }
   }
 
   // upload GCS

@@ -1,6 +1,5 @@
 package com.example.monitor.svc
 
-import com.example.monitor.WriterSubscriber
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.WriteConcern
@@ -8,12 +7,21 @@ import com.mongodb.client.model.Filters.gte
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.reactivestreams.client.MongoClients
 import io.vertx.core.json.JsonObject
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirst
+import kotlinx.coroutines.reactive.collect
 import org.bson.Document
 import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistries.fromRegistries
 import org.bson.codecs.pojo.PojoCodecProvider
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -51,17 +59,10 @@ class MongoService {
     return !result.insertedId.isNull
   }
 
-  fun exportCarCountsMonthly(target: String) {
-    val file = File(target)
-    if(!file.exists()) {
-      file.parentFile.mkdirs()
-      file.createNewFile()
-    }
+  // get data as flow
+  fun getCarCountsMonthly(): Flow<MonitorData>{
     val date = LocalDate.now(ZoneId.of("Asia/Shanghai")).minusDays(30)
-    val publisher = col.find(gte("hour", date))
-    val subscriber = WriterSubscriber(target)
-    publisher.subscribe(subscriber)
-    subscriber.await()
+    return col.find(gte("hour", date)).asFlow()
   }
 }
 
