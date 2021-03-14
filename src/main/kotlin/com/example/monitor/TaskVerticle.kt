@@ -1,12 +1,16 @@
 package com.example.monitor
 
 import com.example.monitor.svc.MongoService
+import com.example.monitor.svc.MonitorData
 import com.google.api.services.storage.StorageScopes
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.storage.*
+import com.google.gson.Gson
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
 import io.vertx.core.VertxOptions
+import io.vertx.core.eventbus.EventBus
+import io.vertx.core.eventbus.Message
 import io.vertx.kotlin.coroutines.CoroutineVerticle
 import io.vertx.kotlin.coroutines.dispatcher
 import io.vertx.spi.cluster.hazelcast.HazelcastClusterManager
@@ -22,6 +26,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.TimeUnit
+import io.vertx.core.eventbus.MessageConsumer
 
 class TaskVerticle: CoroutineVerticle() {
 
@@ -33,10 +38,22 @@ class TaskVerticle: CoroutineVerticle() {
 
   private val bucket = System.getenv("BUCKET") ?: "monitor_report_monthly"
 
+  private lateinit var eb: EventBus
+
   override suspend fun start(){
     mongoService = MongoService()
     storage = StorageOptions.newBuilder().setProjectId("for-test-304513").build().service
     googleCredentials = googleCredentialStorageScope()
+
+    eb = vertx.eventBus()
+    val consumer = eb.consumer<String>("update-car-count")
+    consumer.handler { message: Message<String> ->
+      GlobalScope.launch {
+        val receivedData = message.body()
+        val monitorData = Gson().fromJson(receivedData, MonitorData::class.java)
+        mongoService.updateCarCountById(monitorData)
+      }
+    }
 
     // setup a periodically execute task
     vertx.setPeriodic(TimeUnit.SECONDS.toMillis(3)) {

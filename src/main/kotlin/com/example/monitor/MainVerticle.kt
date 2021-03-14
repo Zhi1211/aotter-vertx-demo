@@ -2,9 +2,12 @@ package com.example.monitor
 
 import com.example.monitor.svc.MongoService
 import com.example.monitor.svc.MonitorData
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.gson.Gson
 import io.vertx.core.DeploymentOptions
 import io.vertx.core.Vertx
 import io.vertx.core.VertxOptions
+import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.handler.BodyHandler
@@ -19,9 +22,13 @@ class MainVerticle : CoroutineVerticle() {
 
   private lateinit var mongoService: MongoService
 
+  private lateinit var eb: EventBus
+
   override suspend fun start() {
     mongoService = MongoService()
     mongoService.createIndexes()
+
+    eb = vertx.eventBus()
 
     vertx
       .createHttpServer()
@@ -47,9 +54,11 @@ class MainVerticle : CoroutineVerticle() {
   }
 
   private suspend fun handleMonitorRequest(monitorData: MonitorData): Boolean{
-    val currentCount = mongoService.getSpecificCount(monitorData)
-    monitorData.count = currentCount + 1
-    return mongoService.insertMonitorData(monitorData)
+    // insert received data without count
+    val insertData = mongoService.insertMonitorData(monitorData)
+    // send message to worker to update inserted data count
+    eb.send("update-car-count", Gson().toJson(insertData))
+    return true
   }
 }
 

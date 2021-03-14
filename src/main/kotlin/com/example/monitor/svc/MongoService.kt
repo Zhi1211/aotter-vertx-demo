@@ -3,22 +3,23 @@ package com.example.monitor.svc
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.WriteConcern
-import com.mongodb.client.model.Accumulators.sum
-import com.mongodb.client.model.Aggregates.group
-import com.mongodb.client.model.Aggregates.match
+import com.mongodb.client.model.*
 import com.mongodb.client.model.Filters.*
-import com.mongodb.client.model.IndexOptions
-import com.mongodb.client.model.Indexes
+import com.mongodb.client.model.Sorts.descending
+import com.mongodb.client.model.Sorts.orderBy
+import com.mongodb.client.model.Updates.*
 import com.mongodb.reactivestreams.client.MongoClients
 import io.vertx.core.json.JsonObject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirst
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import org.bson.Document
 import org.bson.codecs.configuration.CodecRegistries.fromProviders
 import org.bson.codecs.configuration.CodecRegistries.fromRegistries
 import org.bson.codecs.pojo.PojoCodecProvider
+import org.bson.codecs.pojo.annotations.BsonId
+import org.bson.conversions.Bson
+import org.bson.types.ObjectId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -57,40 +58,50 @@ class MongoService {
     )).awaitFirst()
   }
 
-  suspend fun insertMonitorData(monitorData: MonitorData): Boolean{
-    val result = col.insertOne(monitorData).awaitFirst()
-    return !result.insertedId.isNull
+  suspend fun insertMonitorData(monitorData: MonitorData): MonitorData {
+    val (_, cameraId, hour, city, brand, color) = monitorData
+    val updates = mutableListOf<Bson>()
+    updates.add(setOnInsert("hour", hour))
+    updates.add(setOnInsert("city", city))
+    updates.add(setOnInsert("brand", brand))
+    updates.add(setOnInsert("color", color))
+    updates.add(setOnInsert("cameraId", cameraId))
+    return col.findOneAndUpdate(
+      eq("_id", ObjectId()),
+      combine(updates),
+      FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
+    ).awaitFirst()
   }
 
   // get data as flow
-  fun getCarCountsMonthly(): Flow<MonitorData>{
+  fun getCarCountsMonthly(): Flow<MonitorData> {
     val date = LocalDate.now(ZoneId.of("Asia/Shanghai")).minusDays(30)
     return col.find(gte("hour", date)).asFlow()
   }
 
   // get current count of a specific group
   suspend fun getSpecificCount(monitorData: MonitorData): Long{
-    val (_, hour, city, brand, color) = monitorData
-    val doc = col.aggregate(listOf(
-      group(
-        Document("hour", "\$hour")
-          .append("city", "\$city")
-          .append("brand", "\$brand")
-          .append("color", "\$color"),
-        sum("count", 1)
-      ),
-      match(and(
-        eq("_id.hour", hour),
-        eq("_id.city", city),
-        eq("_id.brand", brand),
-        eq("_id.color", color)
-      ))
-    )).awaitFirstOrNull()
-    return doc?.count ?: 0
+    val (_, _, hour, city, brand, color) = monitorData
+    return col.find(and(
+      eq("hour", hour),
+      eq("city", city),
+      eq("brand", brand),
+      eq("color", color)
+    )).sort(orderBy(descending("count"))).awaitFirst().count ?: 0
+  }
+
+  suspend fun updateCarCountById(monitorData: MonitorData){
+    val count = getSpecificCount(monitorData)
+    col.findOneAndUpdate(
+      eq("_id", monitorData.id),
+      set("count", count + 1),
+      FindOneAndUpdateOptions().upsert(false).returnDocument(ReturnDocument.AFTER)
+    ).awaitFirst()
   }
 }
 
 data class MonitorData(
+  @BsonId var id: ObjectId? = null,
   var cameraId: String? = null,
   var hour: Date? = null,
   var city: String? = null,
@@ -104,6 +115,7 @@ data class MonitorData(
       val ldt = LocalDateTime.parse(hourStr)
       val hour = Date.from(ldt.atZone(ZoneId.of("Asia/Shanghai")).toInstant())
       return MonitorData(
+        null,
         jsonObject.getString("cameraId"),
         hour,
         jsonObject.getString("city"),
